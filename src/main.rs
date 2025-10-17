@@ -19,11 +19,12 @@ fn main() {
 
         match instruction_type.trim() {
             "SET" => {
-                if splitted_instructions.len() < 3{
-                    println!("Set requires 2 information. The key and the value");
+                
+                if let Err(err) = handle_set(&splitted_instructions, &mut map){
+                    eprintln!("Err: {}", err);
                     continue;
                 }
-                map.insert(String::from(splitted_instructions[1]), String::from(splitted_instructions[2..].join(" ")));
+                
                 println!("Inserted Key {}",splitted_instructions[1])
             },
             "GET_KEYS" =>{
@@ -52,4 +53,17 @@ fn main() {
 
     }
 
+}
+
+fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<(), String>{
+    if splitted_instruction.len() < 3 {
+        return Err("Invalid SET instruction. It needs a key and value".to_string())
+    }
+
+    let k = splitted_instruction[1].to_string();
+    let v = splitted_instruction[2..].join(" ");
+
+    map.insert(k, v);
+
+    Ok(())
 }
