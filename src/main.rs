@@ -54,7 +54,7 @@ fn main() {
 
 }
 
-fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<(), String>{
+fn handle_set(splitted_instruction:&[&str], map: &mut HashMap<String, String>) -> Result<(), String>{
     if splitted_instruction.len() < 3 {
         return Err("Invalid SET instruction. It needs a key and value".to_string())
     }
@@ -70,7 +70,7 @@ fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>
 }
 
 
-fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<String, String>{
+fn handle_get<'a>(splitted_instructions:&[&str], map: &'a HashMap<String, String>) -> Result<&'a str, String>{
     if splitted_instructions.len() < 2 {
         return Err("Invalid GET instruction. It needs the key".to_string())
     }
@@ -81,7 +81,7 @@ fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String
 
     match potential_value {
         Some(val) => {
-            return Ok(val.to_string());
+            return Ok(val.as_str());
         },
         None => {
             return Err(format!("Value doesn't exist for key: {}", key))
@@ -89,7 +89,7 @@ fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String
     }
 }
 
-fn handle_delete(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<(), String>{
+fn handle_delete(splitted_instruction:&[&str], map: &mut HashMap<String, String>) -> Result<(), String>{
     if splitted_instruction.len() < 2 {
         return Err("Number of argument too low for delete. Need to know the key".to_string());
     }
