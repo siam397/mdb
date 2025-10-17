@@ -84,7 +84,7 @@ fn handle_get<'a>(splitted_instructions:&[&str], map: &'a HashMap<String, String
             return Ok(val.as_str());
         },
         None => {
-            return Err(format!("Value doesn't exist for key: {}", key))
+            return Err(format!("Value doesn't exist for key: {}", key));
         }
     }
 }
