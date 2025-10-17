@@ -8,46 +8,47 @@ fn main() {
 
     loop{
         let mut user_instruction = String::new();
-        let mut user_input_key = String::new();
-        let mut user_input_value = String::new();
-
+        
         io::stdin()
             .read_line(&mut user_instruction)
             .expect("Failed to read instruction");
 
-        if user_instruction.trim() == "GET"{
-            println!("Please provide key");
+        let splitted_instructions:Vec<&str> = user_instruction.trim().split(' ').collect();
 
-            io::stdin()
-                .read_line(&mut user_input_key)
-                .expect("Failed to read key");
+        let instruction_type = splitted_instructions[0];
 
-            let found_value =  map.get(&user_input_key);
-
-            match found_value {
-                Some(val)=> {
-                    println!("{}", val);
-                },
-                None=>println!("No key found")
+        match instruction_type.trim() {
+            "SET" => {
+                if splitted_instructions.len() < 3{
+                    println!("Set requires 2 information. The key and the value");
+                    continue;
+                }
+                map.insert(String::from(splitted_instructions[1]), String::from(splitted_instructions[2..].join(" ")));
+                println!("Inserted Key {}",splitted_instructions[1])
+            },
+            "GET_KEYS" =>{
+                println!("{:?}",map.keys());
             }
+            "GET" =>{
+                if splitted_instructions.len() != 2 {
+                    println!("Invalid Get instruction. It needs the key");
+                    continue;
+                }
 
-            continue;
+                let fetched_key = map.get(splitted_instructions[1]);
+                match fetched_key {
+                    Some(val)=>{
+                        println!("{}", val);
+                    },
+                    None => {
+                        println!("Value not found");
+                    }
+                }
+            },
+            _ => {
+                println!("Invalid instruction")
+            }
         }
-
-
-
-        io::stdin()
-            .read_line(&mut user_input_key)
-            .expect("Failed to read key");
-
-
-        io::stdin()
-            .read_line(&mut user_input_value)
-            .expect("Failed to read value");
-        
-        println!("Key inserted");
-
-        map.insert(user_input_key, user_input_value);
 
     }
 
