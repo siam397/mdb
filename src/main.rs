@@ -30,19 +30,14 @@ fn main() {
             "GET_KEYS" =>{
                 println!("{:?}",map.keys());
             }
-            "GET" =>{
-                if splitted_instructions.len() != 2 {
-                    println!("Invalid Get instruction. It needs the key");
-                    continue;
-                }
-
-                let fetched_key = map.get(splitted_instructions[1]);
-                match fetched_key {
-                    Some(val)=>{
-                        println!("{}", val);
+            "GET" => {
+                match handle_get(&splitted_instructions, &mut map) {
+                    Ok(val)=>{
+                        println!("{:?}", val)
                     },
-                    None => {
-                        println!("Value not found");
+                    Err(err)=>{
+                        eprintln!("Err: {}", err);
+                        continue;
                     }
                 }
             },
@@ -66,4 +61,23 @@ fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>
     map.insert(k, v);
 
     Ok(())
+}
+
+fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<String, String>{
+    if splitted_instructions.len() < 2 {
+        return Err("Invalid GET instruction. It needs the key".to_string())
+    }
+
+    let key = splitted_instructions[1..].join(" ").to_string();
+
+    let potential_value = map.get(&key);
+
+    match potential_value {
+        Some(val) => {
+            return Ok(val.to_string());
+        },
+        None => {
+            return Err(format!("Value doesn't exist for key: {}", key))
+        }
+    }
 }
