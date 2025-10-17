@@ -24,8 +24,6 @@ fn main() {
                     eprintln!("Err: {}", err);
                     continue;
                 }
-                
-                println!("Inserted Key {}",splitted_instructions[1])
             },
             "GET_KEYS" =>{
                 println!("{:?}",map.keys());
@@ -39,6 +37,12 @@ fn main() {
                         eprintln!("Err: {}", err);
                         continue;
                     }
+                }
+            },
+            "DELETE" => {
+                if let Err(err) = handle_delete(&splitted_instructions, &mut map) {
+                    eprintln!("Err: {}", err);
+                    continue;
                 }
             },
             _ => {
@@ -60,6 +64,8 @@ fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>
 
     map.insert(k, v);
 
+    println!("Inserted Key {}",splitted_instruction[1..].join(" "));
+
     Ok(())
 }
 
@@ -80,4 +86,17 @@ fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String
             return Err(format!("Value doesn't exist for key: {}", key))
         }
     }
+}
+
+fn handle_delete(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<(), String>{
+    if splitted_instruction.len() < 2 {
+        return Err("Number of argument too low for delete. Need to know the key".to_string());
+    }
+
+    let key = splitted_instruction[1..].join(" ");
+
+    map.remove(&key);
+    
+    println!("Deleted key {}", splitted_instruction[1..].join(" "));
+    Ok(())
 }
