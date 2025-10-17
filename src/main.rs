@@ -69,6 +69,7 @@ fn handle_set(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, String>
     Ok(())
 }
 
+
 fn handle_get(splitted_instructions:&Vec<&str>, map: &mut HashMap<String, String>) -> Result<String, String>{
     if splitted_instructions.len() < 2 {
         return Err("Invalid GET instruction. It needs the key".to_string())
@@ -99,4 +100,61 @@ fn handle_delete(splitted_instruction:&Vec<&str>, map: &mut HashMap<String, Stri
     
     println!("Deleted key {}", splitted_instruction[1..].join(" "));
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_handle_set_and_get() {
+        let mut map = HashMap::new();
+        let set_cmd = vec!["SET", "username", "siam"];
+        let get_cmd = vec!["GET", "username"];
+
+        // Test SET
+        let res = handle_set(&set_cmd, &mut map);
+        assert!(res.is_ok());
+        assert_eq!(map.get("username"), Some(&"siam".to_string()));
+
+        // Test GET
+        let res = handle_get(&get_cmd, &mut map);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), "siam");
+    }
+
+    #[test]
+    fn test_handle_get_missing_key() {
+        let mut map = HashMap::new();
+        let get_cmd = vec!["GET", "does_not_exist"];
+
+        let res = handle_get(&get_cmd, &mut map);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "Value doesn't exist for key: does_not_exist");
+    }
+
+    #[test]
+    fn test_handle_delete() {
+        let mut map = HashMap::new();
+        let set_cmd = vec!["SET", "token", "abc123"];
+        let del_cmd = vec!["DELETE", "token"];
+
+        handle_set(&set_cmd, &mut map).unwrap();
+        assert!(map.contains_key("token"));
+
+        handle_delete(&del_cmd, &mut map).unwrap();
+        assert!(!map.contains_key("token"));
+    }
+
+    #[test]
+    fn test_handle_set_invalid_args() {
+        let mut map = HashMap::new();
+        let bad_cmd = vec!["SET", "only_one_arg"];
+
+        let res = handle_set(&bad_cmd, &mut map);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "Invalid SET instruction. It needs a key and value");
+    }
+
 }
