@@ -48,11 +48,11 @@ pub mod command {
             ));
         }
 
-        let key = splitted_instruction[1..].join(" ");
+        let key = splitted_instruction[1];
 
-        map.remove(&key);
+        map.remove(key);
 
-        println!("Deleted key {}", splitted_instruction[1..].join(" "));
+        println!("Deleted key {}", splitted_instruction[1]);
         Ok(())
     }
 
