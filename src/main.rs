@@ -1,4 +1,5 @@
 pub mod common;
+pub mod config;
 pub mod db;
 use std::{collections::HashMap, io};
 
@@ -19,9 +20,9 @@ fn main() {
 
         let splitted_instructions: Vec<&str> = user_instruction.trim().split(' ').collect();
 
-        let instruction_type = match CommandType::from_str(splitted_instructions[0]){
-            Some(val)=>val,
-            None=>{
+        let instruction_type = match CommandType::from_str(splitted_instructions[0]) {
+            Some(val) => val,
+            None => {
                 println!("Invalid command");
                 continue;
             }
