@@ -1,15 +1,22 @@
 pub mod common;
-pub mod config;
 pub mod db;
-use std::{collections::HashMap, io};
+use std::io;
 
-use crate::common::command_type::command_type::CommandType;
-use crate::db::command::command::{handle_delete, handle_get, handle_set};
+use crate::{
+    common::command_type::CommandType,
+    db::{
+        command::Db,
+        storage_engine::{engine::Engine, json_engine::JsonEngine},
+    },
+};
+// use crate::db::command::command::{handle_delete, handle_get, handle_set};
 
 fn main() {
-    let mut map: HashMap<String, String> = HashMap::new();
-
     println!("Welcome to minidb");
+
+    let json_engine = JsonEngine::new(String::from("data/data.json"));
+
+    let mut db = Db::new(json_engine).expect("Failed to load db");
 
     loop {
         let mut user_instruction = String::new();
@@ -20,7 +27,7 @@ fn main() {
 
         let splitted_instructions: Vec<&str> = user_instruction.trim().split(' ').collect();
 
-        let instruction_type = match CommandType::from_str(splitted_instructions[0]) {
+        let instruction_type = match CommandType::db_err_from_str(splitted_instructions[0]) {
             Some(val) => val,
             None => {
                 println!("Invalid command");
@@ -29,7 +36,7 @@ fn main() {
         };
 
         match instruction_type {
-            CommandType::Set => match handle_set(&splitted_instructions, &mut map) {
+            CommandType::Set => match db.handle_set(&splitted_instructions) {
                 Ok(_) => {
                     println!("Inserted Key {}", splitted_instructions[1])
                 }
@@ -38,9 +45,9 @@ fn main() {
                 }
             },
             CommandType::GetKeys => {
-                println!("{:?}", map.keys());
+                println!("{:?}", db.data.keys());
             }
-            CommandType::Get => match handle_get(&splitted_instructions, &map) {
+            CommandType::Get => match db.handle_get(&splitted_instructions) {
                 Ok(val) => {
                     println!("{:?}", val)
                 }
@@ -50,7 +57,7 @@ fn main() {
                 }
             },
             CommandType::Delete => {
-                if let Err(err) = handle_delete(&splitted_instructions, &mut map) {
+                if let Err(err) = db.handle_delete(&splitted_instructions) {
                     eprintln!("Err: {:?}", err);
                     continue;
                 }
