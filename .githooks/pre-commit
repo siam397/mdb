@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# repository-tracked pre-commit hook to be installed into .git/hooks
+# This script is identical to .git/hooks/pre-commit used locally: it runs `cargo test` and aborts on failure.
+
+set -euo pipefail
+
+echo "Running repository hook: cargo test (quiet)..."
+
+if ! cargo test --quiet; then
+  echo "\nTests failed. Commit aborted. Run 'cargo test' locally to see failures." >&2
+  exit 1
+fi
+
+echo "Tests passed. Proceeding with commit."
+exit 0
