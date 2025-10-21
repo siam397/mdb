@@ -60,3 +60,84 @@ impl<E: Engine> Db<E> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    // A simple in-memory engine used for testing
+    struct MockEngine {
+        pub storage: HashMap<String, String>,
+    }
+
+    impl MockEngine {
+        fn new() -> Self {
+            MockEngine {
+                storage: HashMap::new(),
+            }
+        }
+    }
+
+    impl Engine for MockEngine {
+        fn new(file_path: String) -> Self {
+            // file_path is unused for the mock
+            let _ = file_path;
+            MockEngine::new()
+        }
+
+        fn save(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
+            // In the mock, we don't persist to disk; just ensure it's serializable
+            let _ = serde_json::to_string(map).map_err(|e| DbError::SaveFailed(e.to_string()))?;
+            Ok(())
+        }
+
+        fn load(&self) -> Result<HashMap<String, String>, DbError> {
+            // Return a copy of the internal storage
+            Ok(self.storage.clone())
+        }
+    }
+
+    #[test]
+    fn handle_set_inserts_and_saves() {
+        let engine = MockEngine::new();
+        let mut db = Db::new(engine).expect("Failed to create db");
+
+        let input = vec!["SET", "foo", "bar"];
+        db.handle_set(&input).expect("handle_set failed");
+
+        assert_eq!(db.data.get("foo"), Some(&"bar".to_string()));
+    }
+
+    #[test]
+    fn handle_get_returns_value_or_error() {
+        let mut engine = MockEngine::new();
+        engine.storage.insert("k1".to_string(), "v1".to_string());
+
+        let db = Db::new(engine).expect("Failed to create db");
+
+        let res = db.handle_get(&["GET", "k1"]).expect("get failed");
+        assert_eq!(res, "v1");
+
+        let err = db.handle_get(&["GET", "missing"]).unwrap_err();
+        match err {
+            DbError::KeyNotFound(_) => {}
+            _ => panic!("Expected KeyNotFound error"),
+        }
+    }
+
+    #[test]
+    fn handle_delete_removes_key() {
+        let mut engine = MockEngine::new();
+        engine.storage.insert("to_delete".to_string(), "v".to_string());
+
+        let mut db = Db::new(engine).expect("Failed to create db");
+
+        // ensure present
+        assert!(db.data.get("to_delete").is_some());
+
+        db.handle_delete(&["DEL", "to_delete"]).expect("delete failed");
+
+        assert!(db.data.get("to_delete").is_none());
+    }
+}

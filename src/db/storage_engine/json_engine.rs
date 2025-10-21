@@ -36,3 +36,58 @@ impl Engine for JsonEngine {
         JsonEngine { file_path }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_path() -> String {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut path = std::env::temp_dir();
+        path.push(format!("minidb_test_{}.json", now));
+        path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn save_and_load_roundtrip() {
+        let path = unique_temp_path();
+
+        // ensure a clean start
+        let _ = fs::remove_file(&path);
+
+        let engine = JsonEngine::new(path.clone());
+
+        let mut map = HashMap::new();
+        map.insert("key1".to_string(), "value1".to_string());
+        map.insert("key2".to_string(), "value2".to_string());
+
+        engine.save(&map).expect("save failed");
+
+        let engine2 = JsonEngine::new(path.clone());
+        let loaded = engine2.load().expect("load failed");
+
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded.get("key1"), Some(&"value1".to_string()));
+
+        // cleanup
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn load_nonexistent_returns_empty() {
+        let path = unique_temp_path();
+
+        // ensure file doesn't exist
+        let _ = fs::remove_file(&path);
+
+        let engine = JsonEngine::new(path.clone());
+        let loaded = engine.load().expect("load failed");
+        assert!(loaded.is_empty());
+    }
+}
