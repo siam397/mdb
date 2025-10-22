@@ -25,7 +25,7 @@ impl<E: Engine> Db<E> {
 
         self.data.insert(k, v);
 
-        self.engine.save(&self.data)?;
+        self.engine.save_all(&self.data)?;
 
         Ok(())
     }
@@ -86,7 +86,7 @@ mod tests {
             MockEngine::new()
         }
 
-        fn save(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
+        fn save_all(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
             // In the mock, we don't persist to disk; just ensure it's serializable
             let _ = serde_json::to_string(map).map_err(|e| DbError::SaveFailed(e.to_string()))?;
             Ok(())
@@ -95,6 +95,10 @@ mod tests {
         fn load(&self) -> Result<HashMap<String, String>, DbError> {
             // Return a copy of the internal storage
             Ok(self.storage.clone())
+        }
+        
+        fn save(&self, k: String,v: String) -> Result<(), DbError> {
+            todo!()
         }
     }
 

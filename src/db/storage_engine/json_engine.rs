@@ -12,7 +12,7 @@ pub struct JsonEngine {
 }
 
 impl Engine for JsonEngine {
-    fn save(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
+    fn save_all(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
         let json = serde_json::to_string(&map).map_err(|e| DbError::SaveFailed(e.to_string()))?;
 
         fs::write(&self.file_path, json).map_err(|e| DbError::SaveFailed(e.to_string()))
@@ -34,6 +34,10 @@ impl Engine for JsonEngine {
 
     fn new(file_path: String) -> Self {
         JsonEngine { file_path }
+    }
+    
+    fn save(&self, k: String,v: String) -> Result<(), DbError> {
+        todo!()
     }
 }
 
@@ -67,7 +71,7 @@ mod tests {
         map.insert("key1".to_string(), "value1".to_string());
         map.insert("key2".to_string(), "value2".to_string());
 
-        engine.save(&map).expect("save failed");
+        engine.save_all(&map).expect("save failed");
 
         let engine2 = JsonEngine::new(path.clone());
         let loaded = engine2.load().expect("load failed");
