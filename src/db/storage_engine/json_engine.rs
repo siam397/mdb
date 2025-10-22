@@ -36,7 +36,7 @@ impl Engine for JsonEngine {
         JsonEngine { file_path }
     }
     
-    fn save(&self, k: String,v: String) -> Result<(), DbError> {
+    fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
         todo!()
     }
 }

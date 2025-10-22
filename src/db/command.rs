@@ -97,7 +97,7 @@ mod tests {
             Ok(self.storage.clone())
         }
         
-        fn save(&self, k: String,v: String) -> Result<(), DbError> {
+        fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
             todo!()
         }
     }
