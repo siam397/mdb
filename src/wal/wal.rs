@@ -3,6 +3,8 @@ use std::{
     io::{BufWriter, Write},
 };
 
+use chrono::Local;
+
 use crate::common::db_errors::DbError;
 
 pub struct Wal {
@@ -20,10 +22,15 @@ impl Wal {
         key: &String,
         value: &String,
     ) -> Result<(), DbError> {
+        let now = Local::now();
+        let timestamp = now.format("%Y-%m-%d %H:%M:00").to_string();
+
+        let filename = format!("wal_{}.log", timestamp);
+        let full_file_path = format!("{}/{}", self.file_path, filename);
         let file = OpenOptions::new()
             .append(true)
             .create(true)
-            .open(&self.file_path)
+            .open(&full_file_path)
             .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
         let content = format!("{} {} {}\n", instruction, key, value);
@@ -42,7 +49,7 @@ impl Wal {
     }
 
     pub fn wal_to_store(&self) -> Result<(), DbError> {
-        let file = OpenOptions::new()
+        let _file = OpenOptions::new()
             .read(true)
             .open(&self.file_path)
             .map_err(|e| {
@@ -51,8 +58,6 @@ impl Wal {
                     e.to_string()
                 ))
             })?;
-        
-        
 
         Ok(())
     }

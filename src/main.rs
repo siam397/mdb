@@ -17,7 +17,7 @@ fn main() {
 
     let json_engine = JsonEngine::new(String::from("data/data.json"));
 
-    let wal = Wal::new(String::from("wal/log.txt"));
+    let wal = Wal::new(String::from("wal"));
 
     let mut db = Db::new(json_engine, wal).expect("Failed to load db");
 
