@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{common::db_errors::DbError, storage_engine::engine::Engine};
 
-
 #[derive(Serialize, Deserialize)]
 pub struct JsonEngine {
     pub file_path: String,
@@ -35,7 +34,7 @@ impl Engine for JsonEngine {
     fn new(file_path: String) -> Self {
         JsonEngine { file_path }
     }
-    
+
     fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
         todo!()
     }

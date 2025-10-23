@@ -1,12 +1,15 @@
-
 use std::collections::HashMap;
 
-use crate::{common::{command_type::CommandType, db_errors::DbError}, storage_engine::engine::Engine, wal::wal::Wal, };
+use crate::{
+    common::{command_type::CommandType, db_errors::DbError},
+    storage_engine::engine::Engine,
+    wal::wal::Wal,
+};
 
 pub struct Db<E: Engine> {
     pub data: HashMap<String, String>,
     pub engine: E,
-    pub wal: Wal
+    pub wal: Wal,
 }
 
 impl<E: Engine> Db<E> {
