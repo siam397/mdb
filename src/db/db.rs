@@ -1,17 +1,18 @@
 
 use std::collections::HashMap;
 
-use crate::{common::db_errors::DbError, storage_engine::engine::Engine, };
+use crate::{common::{command_type::CommandType, db_errors::DbError}, storage_engine::engine::Engine, wal::wal::Wal, };
 
 pub struct Db<E: Engine> {
     pub data: HashMap<String, String>,
     pub engine: E,
+    pub wal: Wal
 }
 
 impl<E: Engine> Db<E> {
-    pub fn new(engine: E) -> Result<Self, DbError> {
+    pub fn new(engine: E, wal: Wal) -> Result<Self, DbError> {
         let data = engine.load()?;
-        Ok(Db { data, engine })
+        Ok(Db { data, engine, wal })
     }
 
     pub fn handle_set(&mut self, splitted_instruction: &[&str]) -> Result<(), DbError> {
@@ -23,6 +24,8 @@ impl<E: Engine> Db<E> {
 
         let k = splitted_instruction[1].to_string();
         let v = splitted_instruction[2..].join(" ");
+
+        self.wal.store_wal(CommandType::Set.as_str(), &k, &v)?;
 
         self.data.insert(k, v);
 

@@ -5,4 +5,5 @@ pub enum DbError {
     KeyNotFound(String),
     SaveFailed(String),
     LoadFailed(String),
+    WalStoreFailed(String)
 }

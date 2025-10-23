@@ -1,11 +1,12 @@
 pub mod common;
 pub mod db;
 pub mod storage_engine;
+pub mod wal;
 use std::io;
 
 use crate::{
     common::command_type::CommandType,
-    db::db::Db, storage_engine::{engine::Engine, json_engine::JsonEngine},
+    db::db::Db, storage_engine::{engine::Engine, json_engine::JsonEngine}, wal::wal::Wal,
 };
 // use crate::db::command::command::{handle_delete, handle_get, handle_set};
 
@@ -14,7 +15,9 @@ fn main() {
 
     let json_engine = JsonEngine::new(String::from("data/data.json"));
 
-    let mut db = Db::new(json_engine).expect("Failed to load db");
+    let wal = Wal::new(String::from("wal/log.txt"));
+
+    let mut db = Db::new(json_engine, wal).expect("Failed to load db");
 
     loop {
         let mut user_instruction = String::new();
