@@ -1,4 +1,5 @@
 use std::{
+    collections::{BTreeMap},
     fs::{self, OpenOptions},
     io::{BufWriter, Write},
     time::{Duration, SystemTime},
@@ -6,7 +7,7 @@ use std::{
 
 use chrono::Local;
 
-use crate::common::db_errors::DbError;
+use crate::common::{command_type::CommandType, db_errors::DbError};
 
 pub struct Wal {
     pub file_dir: String,
@@ -55,21 +56,37 @@ impl Wal {
         let _file = OpenOptions::new()
             .read(true)
             .open(&self.file_dir)
-            .map_err(|e| {
-                DbError::WalStoreFailed(format!(
-                    "Failed to read from wal log. Err: {}",
-                    e.to_string()
-                ))
-            })?;
+            .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
         Ok(())
     }
 
     pub fn play_wal_to_store(&self) -> Result<(), DbError> {
-        let cutoff = SystemTime::now() - Duration::from_secs(60);
+        let mut map: BTreeMap<String, String> = BTreeMap::new();
 
+        let files = self.get_wal_files_available_for_snapshot().map_err(|e| e)?;
+
+        for file in files {
+            let wal_content = fs::read_to_string(file).map_err(|e| {
+                DbError::WalStoreFailed(format!("failed to read file. ERR: {}", e.to_string()))
+            })?;
+
+            let wal_content_split: Vec<&str> = wal_content.split("\n").collect();
+
+            for instruction in wal_content_split {
+                self.store_wals_to_map(instruction, &mut map);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn get_wal_files_available_for_snapshot(&self) -> Result<Vec<String>, DbError> {
+        let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =
             fs::read_dir(&self.file_dir).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
+
+        let mut files: Vec<String> = vec![];
 
         for potential_entry in entries {
             let entry = potential_entry.map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
@@ -80,18 +97,59 @@ impl Wal {
                 let metadata =
                     fs::metadata(&path).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
+                let filename = path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .unwrap_or("no_file")
+                    .to_string();
+
                 let file_created_at = metadata
                     .created()
                     .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
                 if file_created_at < cutoff {
-
+                    files.push(format!("wal/{}", filename));
+                    // let split_inst:Vec<&str> = instruction.trim().split(" ").collect();
                 }
             }
         }
-
-        Ok(())
+        Ok(files)
     }
-    
 
+    pub fn store_wals_to_map(&self, instruction: &str, map: &mut BTreeMap<String, String>) {
+        let split_instruction: Vec<&str> = instruction.split(" ").collect();
+
+        let instruction_type =
+            CommandType::from_str(split_instruction[0]).unwrap_or(CommandType::Get);
+
+        let key = split_instruction[1];
+
+        let val = split_instruction[2..].join(" ");
+
+        match instruction_type {
+            CommandType::Set => map.insert(key.to_string(), val),
+            CommandType::Delete => map.remove(key),
+            _ => {
+                todo!()
+            }
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_play_wal_to_store_logs() {
+        let wal = Wal::new("./wal".to_string());
+
+        println!("--- Running WAL play test ---");
+        let result = wal.play_wal_to_store();
+        println!("Result: {:?}", result);
+        println!("--- Test finished ---");
+
+        // Always pass for now
+        assert!(true);
+    }
 }

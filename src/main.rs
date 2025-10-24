@@ -30,7 +30,7 @@ fn main() {
 
         let splitted_instructions: Vec<&str> = user_instruction.trim().split(' ').collect();
 
-        let instruction_type = match CommandType::db_err_from_str(splitted_instructions[0]) {
+        let instruction_type = match CommandType::from_str(splitted_instructions[0]) {
             Some(val) => val,
             None => {
                 println!("Invalid command");
