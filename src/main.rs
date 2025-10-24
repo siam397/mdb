@@ -7,8 +7,7 @@ use std::io;
 use crate::{
     common::command_type::CommandType,
     db::db::Db,
-    storage_engine::{engine::Engine, json_engine::JsonEngine},
-    wal::wal::Wal,
+    storage_engine::{engine::Engine, json_engine::JsonEngine}, wal::wal::Wal,
 };
 // use crate::db::command::command::{handle_delete, handle_get, handle_set};
 
@@ -30,7 +29,7 @@ fn main() {
 
         let splitted_instructions: Vec<&str> = user_instruction.trim().split(' ').collect();
 
-        let instruction_type = match CommandType::from_str(splitted_instructions[0]) {
+        let instruction_type = match CommandType::command_type_from_str(splitted_instructions[0]) {
             Some(val) => val,
             None => {
                 println!("Invalid command");

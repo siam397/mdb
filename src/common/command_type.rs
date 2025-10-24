@@ -15,7 +15,7 @@ impl CommandType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn command_type_from_str(s: &str) -> Option<Self> {
         match s.trim().to_uppercase().as_str() {
             "SET" => Some(CommandType::Set),
             "GET" => Some(CommandType::Get),

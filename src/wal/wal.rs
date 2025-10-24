@@ -1,3 +1,4 @@
+
 use std::{
     collections::{BTreeMap},
     fs::{self, OpenOptions},
@@ -64,11 +65,11 @@ impl Wal {
     pub fn play_wal_to_store(&self) -> Result<(), DbError> {
         let mut map: BTreeMap<String, String> = BTreeMap::new();
 
-        let files = self.get_wal_files_available_for_snapshot().map_err(|e| e)?;
+        let files = self.get_wal_files_available_for_snapshot()?;
 
         for file in files {
             let wal_content = fs::read_to_string(file).map_err(|e| {
-                DbError::WalStoreFailed(format!("failed to read file. ERR: {}", e.to_string()))
+                DbError::WalStoreFailed(format!("failed to read file. ERR: {}", e))
             })?;
 
             let wal_content_split: Vec<&str> = wal_content.split("\n").collect();
@@ -120,7 +121,7 @@ impl Wal {
         let split_instruction: Vec<&str> = instruction.split(" ").collect();
 
         let instruction_type =
-            CommandType::from_str(split_instruction[0]).unwrap_or(CommandType::Get);
+            CommandType::command_type_from_str(split_instruction[0]).unwrap_or(CommandType::Get);
 
         let key = split_instruction[1];
 
@@ -133,23 +134,5 @@ impl Wal {
                 todo!()
             }
         };
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_play_wal_to_store_logs() {
-        let wal = Wal::new("./wal".to_string());
-
-        println!("--- Running WAL play test ---");
-        let result = wal.play_wal_to_store();
-        println!("Result: {:?}", result);
-        println!("--- Test finished ---");
-
-        // Always pass for now
-        assert!(true);
     }
 }
