@@ -1,8 +1,7 @@
-
 use std::{
-    collections::{BTreeMap},
-    fs::{self, OpenOptions},
-    io::{BufWriter, Write},
+    collections::BTreeMap,
+    fs::{self, File, OpenOptions},
+    io::{BufRead, BufReader, BufWriter, Write},
     time::{Duration, SystemTime},
 };
 
@@ -68,20 +67,19 @@ impl Wal {
         let files = self.get_wal_files_available_for_snapshot()?;
 
         for file in files {
-            let wal_content = fs::read_to_string(file).map_err(|e| {
-                DbError::WalStoreFailed(format!("failed to read file. ERR: {}", e))
-            })?;
 
-            let wal_content_split: Vec<&str> = wal_content.split("\n").collect();
+            let file = File::open(&file).map_err(|e|DbError::WalStoreFailed(e.to_string()))?;
+            
+            let reader = BufReader::new(&file);
 
-            for instruction in wal_content_split {
-                self.store_wals_to_map(instruction, &mut map);
+            for instruction_result in reader.lines(){
+                let instruction = instruction_result.map_err(|e|DbError::WalStoreFailed(format!("failed to read lines. ERR {}", e.to_string())))?;
+                self.store_wals_to_map(instruction.as_str(), &mut map);
             }
         }
 
         Ok(())
     }
-
     pub fn get_wal_files_available_for_snapshot(&self) -> Result<Vec<String>, DbError> {
         let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =
