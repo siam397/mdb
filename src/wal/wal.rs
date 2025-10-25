@@ -67,13 +67,14 @@ impl Wal {
         let files = self.get_wal_files_available_for_snapshot()?;
 
         for file in files {
+            let file = File::open(&file).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
-            let file = File::open(&file).map_err(|e|DbError::WalStoreFailed(e.to_string()))?;
-            
             let reader = BufReader::new(&file);
 
-            for instruction_result in reader.lines(){
-                let instruction = instruction_result.map_err(|e|DbError::WalStoreFailed(format!("failed to read lines. ERR {}", e.to_string())))?;
+            for instruction_result in reader.lines() {
+                let instruction = instruction_result.map_err(|e| {
+                    DbError::WalStoreFailed(format!("failed to read lines. ERR {}", e))
+                })?;
                 self.store_wals_to_map(instruction.as_str(), &mut map);
             }
         }
@@ -117,6 +118,10 @@ impl Wal {
 
     pub fn store_wals_to_map(&self, instruction: &str, map: &mut BTreeMap<String, String>) {
         let split_instruction: Vec<&str> = instruction.split(" ").collect();
+
+        if split_instruction.len() < 3 {
+            return;
+        }
 
         let instruction_type =
             CommandType::command_type_from_str(split_instruction[0]).unwrap_or(CommandType::Get);
