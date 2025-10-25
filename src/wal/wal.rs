@@ -81,6 +81,7 @@ impl Wal {
 
         Ok(())
     }
+    
     pub fn get_wal_files_available_for_snapshot(&self) -> Result<Vec<String>, DbError> {
         let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =
@@ -104,7 +105,7 @@ impl Wal {
                     .to_string();
 
                 let file_created_at = metadata
-                    .created()
+                    .modified()
                     .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
                 if file_created_at < cutoff {
