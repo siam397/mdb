@@ -7,16 +7,18 @@ use std::{
 
 use chrono::Local;
 
-use crate::common::{command_type::CommandType, db_errors::DbError};
+use crate::{common::{command_type::CommandType, db_errors::DbError}, storage_engine::engine::Engine};
 
-pub struct Wal {
+pub struct Wal<E: Engine> {
     pub file_dir: String,
+    pub storage_engine: E,
 }
 
-impl Wal {
-    pub fn new(file_path: String) -> Self {
+impl <E:Engine> Wal<E> {
+    pub fn new(file_path: String, engine: E) -> Self {
         Wal {
             file_dir: file_path,
+            storage_engine: engine
         }
     }
 

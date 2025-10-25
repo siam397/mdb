@@ -1,4 +1,7 @@
-use std::{fs::File, io::{BufWriter, Write}};
+use std::{
+    fs::{self, File},
+    io::{BufRead, BufReader, BufWriter, Write},
+};
 
 use chrono::Local;
 
@@ -16,34 +19,95 @@ impl Engine for SSTableEngine {
     fn save_all(
         &self,
         map: &std::collections::BTreeMap<String, String>,
-    ) -> Result<(), crate::common::db_errors::DbError> {
-
-                let now = Local::now();
+    ) -> Result<(), DbError> {
+        let now = Local::now();
         let timestamp = now.format("%Y-%m-%d %H:%M:00").to_string();
 
-        let full_path = format!("{}/{}", self.file_path,timestamp);
+        let full_path = format!("{}/{}.db", self.file_path, timestamp);
 
-                let file = File::open(&full_path)
-            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let file = File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
         let mut writer = BufWriter::new(file);
 
         for (key, val) in map {
-            let line = format!("{} {}\n",key,val);
-            writer.write_all(line.as_bytes()).map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-            writer.flush().map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+            let line = format!("{} {}\n", key, val);
+            writer
+                .write_all(line.as_bytes())
+                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+            writer
+                .flush()
+                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
         }
 
         Ok(())
     }
 
-    fn save(&self, _k: String, _v: String) -> Result<(), crate::common::db_errors::DbError> {
+    fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
         todo!()
     }
 
     fn load(
         &self,
-    ) -> Result<std::collections::BTreeMap<String, String>, crate::common::db_errors::DbError> {
+    ) -> Result<std::collections::BTreeMap<String, String>, DbError> {
         todo!()
     }
+    
+    fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
+
+        let files = get_sstable_files(&self.file_path).map_err(|e|e)?;
+
+        for file in files {
+            let full_path = format!("{}/{}", self.file_path, file);
+
+            let file = File::open(&full_path)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+            let reader = BufReader::new(&file);
+
+            for line_result in reader.lines(){
+                let line = line_result.map_err(|e|DbError::SSTableReadFailed(e.to_string()))?;
+
+                let parts: Vec<&str> = line.splitn(2, " ").collect();
+
+                let key = parts[0];
+                let val = parts[1];
+
+                match key.cmp(k.as_str()) {
+                    std::cmp::Ordering::Less => continue,
+                    std::cmp::Ordering::Equal => return Ok(Some(val.to_string())),
+                    std::cmp::Ordering::Greater => return Ok(None),
+                };
+            }
+        }
+        
+        Ok(None)
+    }
 }
+
+    // Get list of all SSTable files (sorted by timestamp, newest first)
+    pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
+        let entries = fs::read_dir(file_dir)
+            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+        let mut files: Vec<String> = vec![];
+
+        for entry_result in entries {
+            let entry = entry_result
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            
+            let path = entry.path();
+            
+            if path.is_file() {
+                if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                    if filename.starts_with("sstable_") && filename.ends_with(".db") {
+                        files.push(filename.to_string());
+                    }
+                }
+            }
+        }
+
+        // Sort by filename (timestamp embedded) - newest first
+        files.sort_by(|a, b| b.cmp(a));
+        
+        Ok(files)
+    }

@@ -7,4 +7,5 @@ pub trait Engine {
     fn save_all(&self, map: &BTreeMap<String, String>) -> Result<(), DbError>;
     fn save(&self, k: String, v: String) -> Result<(), DbError>;
     fn load(&self) -> Result<BTreeMap<String, String>, DbError>;
+    fn get_value(&self, k: String) -> Result<Option<String>, DbError>;
 }

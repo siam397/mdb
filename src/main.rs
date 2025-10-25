@@ -7,19 +7,18 @@ use std::io;
 use crate::{
     common::command_type::CommandType,
     db::db::Db,
-    storage_engine::{engine::Engine, json_engine::JsonEngine},
+    storage_engine::{engine::Engine, sstable_engine::{SSTableEngine}},
     wal::wal::Wal,
 };
-// use crate::db::command::command::{handle_delete, handle_get, handle_set};
 
 fn main() {
     println!("Welcome to minidb");
 
-    let json_engine = JsonEngine::new(String::from("data/data.json"));
+    let sstable_engine = SSTableEngine::new(String::from("data"));
 
-    let wal = Wal::new(String::from("wal"));
+    let wal = Wal::new(String::from("wal"), SSTableEngine::new(String::from("data")));
 
-    let mut db = Db::new(json_engine, wal).expect("Failed to load db");
+    let mut db = Db::new(sstable_engine, wal).expect("Failed to load db");
 
     loop {
         let mut user_instruction = String::new();

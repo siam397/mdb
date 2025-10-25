@@ -9,11 +9,11 @@ use crate::{
 pub struct Db<E: Engine> {
     pub data: BTreeMap<String, String>,
     pub engine: E,
-    pub wal: Wal,
+    pub wal: Wal<E>,
 }
 
 impl<E: Engine> Db<E> {
-    pub fn new(engine: E, wal: Wal) -> Result<Self, DbError> {
+    pub fn new(engine: E, wal: Wal<E>) -> Result<Self, DbError> {
         let data = engine.load()?;
         Ok(Db { data, engine, wal })
     }

@@ -6,5 +6,5 @@ pub enum DbError {
     LoadFailed(String),
     WalStoreFailed(String),
     SSTableReadFailed(String),
-    SSTableWriteFailed(String)
+    SSTableWriteFailed(String),
 }
