@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::{
     common::{command_type::CommandType, db_errors::DbError},
@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub struct Db<E: Engine> {
-    pub data: HashMap<String, String>,
+    pub data: BTreeMap<String, String>,
     pub engine: E,
     pub wal: Wal,
 }

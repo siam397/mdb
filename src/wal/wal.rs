@@ -81,7 +81,7 @@ impl Wal {
 
         Ok(())
     }
-    
+
     pub fn get_wal_files_available_for_snapshot(&self) -> Result<Vec<String>, DbError> {
         let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =

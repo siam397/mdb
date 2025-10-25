@@ -5,4 +5,6 @@ pub enum DbError {
     SaveFailed(String),
     LoadFailed(String),
     WalStoreFailed(String),
+    SSTableReadFailed(String),
+    SSTableWriteFailed(String)
 }

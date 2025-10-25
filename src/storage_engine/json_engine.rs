@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use serde::{Deserialize, Serialize};
@@ -11,15 +11,15 @@ pub struct JsonEngine {
 }
 
 impl Engine for JsonEngine {
-    fn save_all(&self, map: &HashMap<String, String>) -> Result<(), DbError> {
+    fn save_all(&self, map: &BTreeMap<String, String>) -> Result<(), DbError> {
         let json = serde_json::to_string(&map).map_err(|e| DbError::SaveFailed(e.to_string()))?;
 
         fs::write(&self.file_path, json).map_err(|e| DbError::SaveFailed(e.to_string()))
     }
 
-    fn load(&self) -> Result<HashMap<String, String>, DbError> {
+    fn load(&self) -> Result<BTreeMap<String, String>, DbError> {
         if !std::path::Path::new(&self.file_path).exists() {
-            return Ok(HashMap::new());
+            return Ok(BTreeMap::new());
         }
 
         let content =
@@ -43,7 +43,7 @@ impl Engine for JsonEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -66,7 +66,7 @@ mod tests {
 
         let engine = JsonEngine::new(path.clone());
 
-        let mut map = HashMap::new();
+        let mut map = BTreeMap::new();
         map.insert("key1".to_string(), "value1".to_string());
         map.insert("key2".to_string(), "value2".to_string());
 
