@@ -7,7 +7,7 @@ use std::io;
 use crate::{
     common::command_type::CommandType,
     db::db::Db,
-    storage_engine::{engine::Engine, sstable_engine::{SSTableEngine}},
+    storage_engine::{engine::Engine, sstable_engine::SSTableEngine},
     wal::wal::Wal,
 };
 
@@ -16,7 +16,10 @@ fn main() {
 
     let sstable_engine = SSTableEngine::new(String::from("data"));
 
-    let wal = Wal::new(String::from("wal"), SSTableEngine::new(String::from("data")));
+    let wal = Wal::new(
+        String::from("wal"),
+        SSTableEngine::new(String::from("data")),
+    );
 
     let mut db = Db::new(sstable_engine, wal).expect("Failed to load db");
 

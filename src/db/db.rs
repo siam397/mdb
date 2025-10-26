@@ -66,4 +66,9 @@ impl<E: Engine> Db<E> {
         println!("Deleted key {}", splitted_instruction[1]);
         Ok(())
     }
+
+    pub fn flush_to_persist(&self){
+        println!("flushhhhhhhh")
+    }
+
 }

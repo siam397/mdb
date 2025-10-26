@@ -16,16 +16,13 @@ impl Engine for SSTableEngine {
         SSTableEngine { file_path }
     }
 
-    fn save_all(
-        &self,
-        map: &std::collections::BTreeMap<String, String>,
-    ) -> Result<(), DbError> {
+    fn save_all(&self, map: &std::collections::BTreeMap<String, String>) -> Result<(), DbError> {
         let now = Local::now();
         let timestamp = now.format("%Y-%m-%d %H:%M:00").to_string();
 
         let full_path = format!("{}/{}.db", self.file_path, timestamp);
 
-        let file = File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let file = File::create(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
         let mut writer = BufWriter::new(file);
 
@@ -46,26 +43,23 @@ impl Engine for SSTableEngine {
         todo!()
     }
 
-    fn load(
-        &self,
-    ) -> Result<std::collections::BTreeMap<String, String>, DbError> {
+    fn load(&self) -> Result<std::collections::BTreeMap<String, String>, DbError> {
         todo!()
     }
-    
-    fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
 
-        let files = get_sstable_files(&self.file_path).map_err(|e|e)?;
+    fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
+        let files = get_sstable_files(&self.file_path).map_err(|e| e)?;
 
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
 
-            let file = File::open(&full_path)
-                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let file =
+                File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
             let reader = BufReader::new(&file);
 
-            for line_result in reader.lines(){
-                let line = line_result.map_err(|e|DbError::SSTableReadFailed(e.to_string()))?;
+            for line_result in reader.lines() {
+                let line = line_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
                 let parts: Vec<&str> = line.splitn(2, " ").collect();
 
@@ -79,35 +73,33 @@ impl Engine for SSTableEngine {
                 };
             }
         }
-        
+
         Ok(None)
     }
 }
 
-    // Get list of all SSTable files (sorted by timestamp, newest first)
-    pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
-        let entries = fs::read_dir(file_dir)
-            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+// Get list of all SSTable files (sorted by timestamp, newest first)
+pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
+    let entries = fs::read_dir(file_dir).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
-        let mut files: Vec<String> = vec![];
+    let mut files: Vec<String> = vec![];
 
-        for entry_result in entries {
-            let entry = entry_result
-                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-            
-            let path = entry.path();
-            
-            if path.is_file() {
-                if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                    if filename.starts_with("sstable_") && filename.ends_with(".db") {
-                        files.push(filename.to_string());
-                    }
+    for entry_result in entries {
+        let entry = entry_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+        let path = entry.path();
+
+        if path.is_file() {
+            if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                if filename.starts_with("sstable_") && filename.ends_with(".db") {
+                    files.push(filename.to_string());
                 }
             }
         }
-
-        // Sort by filename (timestamp embedded) - newest first
-        files.sort_by(|a, b| b.cmp(a));
-        
-        Ok(files)
     }
+
+    // Sort by filename (timestamp embedded) - newest first
+    files.sort_by(|a, b| b.cmp(a));
+
+    Ok(files)
+}
