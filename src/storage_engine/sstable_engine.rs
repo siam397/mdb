@@ -48,7 +48,7 @@ impl Engine for SSTableEngine {
     }
 
     fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
-        let files = get_sstable_files(&self.file_path).map_err(|e| e)?;
+        let files = get_sstable_files(&self.file_path)?;
 
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
@@ -89,13 +89,11 @@ pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
 
         let path = entry.path();
 
-        if path.is_file() {
-            if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                if filename.starts_with("sstable_") && filename.ends_with(".db") {
+        if path.is_file()
+            && let Some(filename) = path.file_name().and_then(|f| f.to_str())
+                && filename.starts_with("sstable_") && filename.ends_with(".db") {
                     files.push(filename.to_string());
                 }
-            }
-        }
     }
 
     // Sort by filename (timestamp embedded) - newest first

@@ -6,9 +6,9 @@ use std::io;
 
 use crate::{
     common::command_type::CommandType,
-    db::db::Db,
+    db::    Db,
     storage_engine::{engine::Engine, sstable_engine::SSTableEngine},
-    wal::wal::Wal,
+    wal::Wal,
 };
 
 fn main() {

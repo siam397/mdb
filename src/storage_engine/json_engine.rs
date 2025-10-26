@@ -40,7 +40,7 @@ impl Engine for JsonEngine {
         todo!()
     }
 
-    fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
+    fn get_value(&self, _k: String) -> Result<Option<String>, DbError> {
         todo!()
     }
 }
