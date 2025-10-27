@@ -2,7 +2,10 @@ pub mod common;
 pub mod db;
 pub mod storage_engine;
 pub mod wal;
-use std::io;
+pub mod flusher;
+use std::{io};
+use tokio::time::{sleep, Duration};
+use tokio;
 
 use crate::{
     common::command_type::CommandType,
@@ -11,8 +14,15 @@ use crate::{
     wal::Wal,
 };
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Welcome to minidb");
+        tokio::spawn(async {
+        loop {
+            println!("sex");
+            sleep(Duration::from_secs(10)).await;
+        }
+    });
 
     let sstable_engine = SSTableEngine::new(String::from("data"));
 

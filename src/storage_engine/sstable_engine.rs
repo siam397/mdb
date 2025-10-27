@@ -1,6 +1,5 @@
 use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
+    collections::BTreeMap, fs::{self, File}, io::{BufRead, BufReader, BufWriter, Write}
 };
 
 use chrono::Local;
@@ -40,11 +39,12 @@ impl Engine for SSTableEngine {
     }
 
     fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
-        todo!()
+        Ok(())
     }
 
-    fn load(&self) -> Result<std::collections::BTreeMap<String, String>, DbError> {
-        todo!()
+    fn load(&self) -> Result<BTreeMap<String, String>, DbError> {
+        let map:BTreeMap<String, String> = BTreeMap::new();
+        Ok(map)
     }
 
     fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
