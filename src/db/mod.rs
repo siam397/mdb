@@ -67,8 +67,7 @@ impl<E: Engine> Db<E> {
         Ok(())
     }
 
-    pub fn flush_to_persist(&self){
+    pub fn flush_to_persist(&self) {
         println!("flushhhhhhhh")
     }
-
 }

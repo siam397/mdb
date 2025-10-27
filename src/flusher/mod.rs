@@ -1,57 +1,41 @@
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::{fs, sync::Arc};
 
-use crate::{
-    common::db_errors::DbError,
-    storage_engine::engine::Engine,
-    wal::Wal,
-};
+use tokio::time::{Duration, sleep};
 
-pub struct Flusher<E: Engine> {
-    wal: Arc<Mutex<Wal<E>>>,
+use crate::{storage_engine::engine::Engine, wal::Wal};
+
+pub struct Flusher<E: Engine + 'static + Send+ Sync> {
+    engine: Arc<E>,
+    wal: Arc<Wal<E>>,
     flush_interval_secs: u64,
 }
 
-impl<E: Engine + 'static> Flusher<E> {
-    pub fn new(wal: Wal<E>, flush_interval_secs: u64) -> Self {
+impl <E: Engine + Send + Sync + 'static>  Flusher<E> {
+    pub fn new(flush_interval_secs: u64, engine: Arc<E>, wal:Arc<Wal<E>>) -> Self {
         Flusher {
-            wal: Arc::new(Mutex::new(wal)),
             flush_interval_secs,
+            engine,
+            wal
         }
     }
 
-    /// Start the periodic flushing in a background thread
-    // pub fn start(&self) -> thread::JoinHandle<()> {
-    //     let wal = Arc::clone(&self.wal);
-    //     let interval = self.flush_interval_secs;
+    pub fn start(&self) {
+        let interval = self.flush_interval_secs;
+        let wal_clone  = self.wal.clone();
+        tokio::spawn(async move{
+            loop {
+                let files = wal_clone.get_wal_files_available_for_snapshot().unwrap();
+                wal_clone.play_wal_to_store();
 
-    // }
-
-    /// Get a reference to the WAL for manual operations
-    pub fn get_wal(&self) -> Arc<Mutex<Wal<E>>> {
-        Arc::clone(&self.wal)
-    }
-
-    /// Manually trigger a flush
-    pub fn flush_now(&self) -> Result<(), DbError> {
-        let wal = self.wal.lock().unwrap();
-        
-        let files = wal.get_wal_files_available_for_snapshot()?;
-        
-        if files.is_empty() {
-            println!("[Flusher] No files to flush");
-            return Ok(());
-        }
-
-        println!("[Flusher] Flushing {} WAL files", files.len());
-        for file in &files {
-            println!("  - {}", file);
-        }
-
-        // TODO: Call actual flush method when implemented
-        // wal.flush_wal_to_sstable()?;
-
-        Ok(())
+                for file in files {
+                    match fs::remove_file(&file) {
+                        Ok(_) => (),
+                        Err(_) => println!("Failed to delete file {}", file),
+                    }
+                }
+                
+                sleep(Duration::from_secs(interval)).await;
+            }
+        });
     }
 }

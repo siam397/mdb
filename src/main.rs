@@ -1,28 +1,27 @@
 pub mod common;
 pub mod db;
+pub mod flusher;
 pub mod storage_engine;
 pub mod wal;
-pub mod flusher;
-use std::{io};
-use tokio::time::{sleep, Duration};
+use std::{io, sync::Arc};
 use tokio;
 
 use crate::{
-    common::command_type::CommandType,
-    db::    Db,
-    storage_engine::{engine::Engine, sstable_engine::SSTableEngine},
-    wal::Wal,
+    common::command_type::CommandType, db::Db, flusher::Flusher, storage_engine::{engine::Engine, sstable_engine::SSTableEngine}, wal::Wal
 };
 
 #[tokio::main]
 async fn main() {
     println!("Welcome to minidb");
-        tokio::spawn(async {
-        loop {
-            println!("sex");
-            sleep(Duration::from_secs(10)).await;
-        }
-    });
+    let flusher_sstable_engine = SSTableEngine::new(String::from("data"));
+
+    let flusher_wal = Wal::new(
+        String::from("wal"),
+        SSTableEngine::new(String::from("data")),
+    );
+
+    let flusher = Flusher::new(90, Arc::new(flusher_sstable_engine), Arc::new(flusher_wal));
+    flusher.start();
 
     let sstable_engine = SSTableEngine::new(String::from("data"));
 

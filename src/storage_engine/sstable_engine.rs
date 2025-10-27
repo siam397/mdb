@@ -1,5 +1,7 @@
 use std::{
-    collections::BTreeMap, fs::{self, File}, io::{BufRead, BufReader, BufWriter, Write}
+    collections::BTreeMap,
+    fs::{self, File},
+    io::{BufRead, BufReader, BufWriter, Write},
 };
 
 use chrono::Local;
@@ -21,7 +23,8 @@ impl Engine for SSTableEngine {
 
         let full_path = format!("{}/{}.db", self.file_path, timestamp);
 
-        let file = File::create(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let file =
+            File::create(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
         let mut writer = BufWriter::new(file);
 
@@ -43,7 +46,7 @@ impl Engine for SSTableEngine {
     }
 
     fn load(&self) -> Result<BTreeMap<String, String>, DbError> {
-        let map:BTreeMap<String, String> = BTreeMap::new();
+        let map: BTreeMap<String, String> = BTreeMap::new();
         Ok(map)
     }
 
@@ -91,9 +94,11 @@ pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
 
         if path.is_file()
             && let Some(filename) = path.file_name().and_then(|f| f.to_str())
-                && filename.starts_with("sstable_") && filename.ends_with(".db") {
-                    files.push(filename.to_string());
-                }
+            && filename.starts_with("sstable_")
+            && filename.ends_with(".db")
+        {
+            files.push(filename.to_string());
+        }
     }
 
     // Sort by filename (timestamp embedded) - newest first

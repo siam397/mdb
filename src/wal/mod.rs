@@ -84,6 +84,8 @@ impl<E: Engine> Wal<E> {
             }
         }
 
+        self.storage_engine.save_all(&map);
+
         Ok(())
     }
 
