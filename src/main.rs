@@ -4,7 +4,6 @@ pub mod flusher;
 pub mod storage_engine;
 pub mod wal;
 use std::{io, sync::Arc};
-use tokio;
 
 use crate::{
     common::command_type::CommandType, db::Db, flusher::Flusher, storage_engine::{engine::Engine, sstable_engine::SSTableEngine}, wal::Wal
@@ -13,14 +12,13 @@ use crate::{
 #[tokio::main]
 async fn main() {
     println!("Welcome to minidb");
-    let flusher_sstable_engine = SSTableEngine::new(String::from("data"));
 
     let flusher_wal = Wal::new(
         String::from("wal"),
         SSTableEngine::new(String::from("data")),
     );
 
-    let flusher = Flusher::new(90, Arc::new(flusher_sstable_engine), Arc::new(flusher_wal));
+    let flusher = Flusher::new(90, Arc::new(flusher_wal));
     flusher.start();
 
     let sstable_engine = SSTableEngine::new(String::from("data"));

@@ -5,16 +5,14 @@ use tokio::time::{Duration, sleep};
 use crate::{storage_engine::engine::Engine, wal::Wal};
 
 pub struct Flusher<E: Engine + 'static + Send+ Sync> {
-    engine: Arc<E>,
     wal: Arc<Wal<E>>,
     flush_interval_secs: u64,
 }
 
 impl <E: Engine + Send + Sync + 'static>  Flusher<E> {
-    pub fn new(flush_interval_secs: u64, engine: Arc<E>, wal:Arc<Wal<E>>) -> Self {
+    pub fn new(flush_interval_secs: u64, wal:Arc<Wal<E>>) -> Self {
         Flusher {
             flush_interval_secs,
-            engine,
             wal
         }
     }
@@ -25,7 +23,7 @@ impl <E: Engine + Send + Sync + 'static>  Flusher<E> {
         tokio::spawn(async move{
             loop {
                 let files = wal_clone.get_wal_files_available_for_snapshot().unwrap();
-                wal_clone.play_wal_to_store();
+                wal_clone.play_wal_to_store().unwrap_err();
 
                 for file in files {
                     match fs::remove_file(&file) {
