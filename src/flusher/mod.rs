@@ -20,10 +20,17 @@ impl <E: Engine + Send + Sync + 'static>  Flusher<E> {
     pub fn start(&self) {
         let interval = self.flush_interval_secs;
         let wal_clone  = self.wal.clone();
+        println!("Flusher started");
         tokio::spawn(async move{
             loop {
                 let files = wal_clone.get_wal_files_available_for_snapshot().unwrap();
-                wal_clone.play_wal_to_store().unwrap_err();
+
+                println!("available files found for flush {}", files.len());
+
+                match wal_clone.play_wal_to_store(){
+                    Ok(_) => {},
+                    Err(e) => println!("{:?}",e),
+                };
 
                 for file in files {
                     match fs::remove_file(&file) {

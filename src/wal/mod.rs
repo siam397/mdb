@@ -93,6 +93,7 @@ impl<E: Engine> Wal<E> {
         let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =
             fs::read_dir(&self.file_dir).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
+        println!("{:?}",entries);
 
         let mut files: Vec<String> = vec![];
 
