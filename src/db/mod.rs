@@ -6,7 +6,7 @@ use crate::{
     wal::Wal,
 };
 
-pub struct Db<E: Engine> {
+pub struct Db<E: Engine  > {
     pub data: BTreeMap<String, String>,
     pub engine: E,
     pub wal: Wal<E>,
