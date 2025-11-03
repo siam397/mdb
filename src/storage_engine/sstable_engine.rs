@@ -3,6 +3,9 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
 };
+use std::time::SystemTime;
+use std::cmp::Ordering;
+
 
 use chrono::Local;
 
@@ -50,9 +53,8 @@ impl Engine for SSTableEngine {
         Ok(map)
     }
 
-    fn get_value(&self, k: String) -> Result<Option<String>, DbError> {
+    fn get_value(&self, k: String) -> Result<String, DbError> {
         let files = get_sstable_files(&self.file_path)?;
-
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
 
@@ -68,41 +70,52 @@ impl Engine for SSTableEngine {
 
                 let key = parts[0];
                 let val = parts[1];
+                println!("{}", key);
 
                 match key.cmp(k.as_str()) {
                     std::cmp::Ordering::Less => continue,
-                    std::cmp::Ordering::Equal => return Ok(Some(val.to_string())),
-                    std::cmp::Ordering::Greater => return Ok(None),
+                    std::cmp::Ordering::Equal => return Ok(val.to_string()),
+                    std::cmp::Ordering::Greater => return Err(DbError::KeyNotFound(format!("Key not found for key: {}", k))),
                 };
             }
         }
 
-        Ok(None)
+        Err(DbError::KeyNotFound(format!("Key not found for key: {}", k)))
     }
 }
 
-// Get list of all SSTable files (sorted by timestamp, newest first)
-pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
-    let entries = fs::read_dir(file_dir).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
-    let mut files: Vec<String> = vec![];
+pub fn get_sstable_files(file_dir: &str) -> Result<Vec<String>, DbError> {
+    let entries = fs::read_dir(file_dir)
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+    let mut files_with_time: Vec<(String, SystemTime)> = vec![];
 
     for entry_result in entries {
-        let entry = entry_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-
+        let entry = entry_result
+            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
         let path = entry.path();
 
         if path.is_file()
             && let Some(filename) = path.file_name().and_then(|f| f.to_str())
-            && filename.starts_with("sstable_")
             && filename.ends_with(".db")
         {
-            files.push(filename.to_string());
+            let metadata = entry
+                .metadata()
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let modified = metadata
+                .modified()
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+            files_with_time.push((filename.to_string(), modified));
         }
     }
 
-    // Sort by filename (timestamp embedded) - newest first
-    files.sort_by(|a, b| b.cmp(a));
+    files_with_time.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
+    });
+
+    let files: Vec<String> = files_with_time.into_iter().map(|(name, _)| name).collect();
 
     Ok(files)
 }

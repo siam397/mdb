@@ -37,7 +37,7 @@ impl<E: Engine> Db<E> {
         Ok(())
     }
 
-    pub fn handle_get(&self, splitted_instructions: &[&str]) -> Result<&str, DbError> {
+    pub fn handle_get(&self, splitted_instructions: &[&str]) -> Result<String, DbError> {
         if splitted_instructions.len() < 2 {
             return Err(DbError::InvalidCommand(
                 "Invalid GET instruction. It needs the key",
@@ -46,10 +46,17 @@ impl<E: Engine> Db<E> {
 
         let key = splitted_instructions[1];
 
-        self.data
-            .get(key)
-            .map(|s| s.as_str())
-            .ok_or_else(|| DbError::KeyNotFound(key.to_string()))
+        let potential_res = self.data.get(key);
+
+        match potential_res {
+            Some(x) => return Ok(x.to_string()),
+            None => {
+                return match self.engine.get_value(key.to_string()) {
+                    Ok(val) => Ok(val),
+                    Err(e) => Err(e),
+                };
+            },
+        }            
     }
 
     pub fn handle_delete(&mut self, splitted_instruction: &[&str]) -> Result<(), DbError> {
