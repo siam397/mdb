@@ -69,17 +69,22 @@ impl Engine for SSTableEngine {
 
                 let key = parts[0];
                 let val = parts[1];
-                println!("{}", key);
 
                 match key.cmp(k.as_str()) {
                     std::cmp::Ordering::Less => continue,
-                    std::cmp::Ordering::Equal => return Ok(val.to_string()),
-                    std::cmp::Ordering::Greater => {
-                        return Err(DbError::KeyNotFound(format!(
-                            "Key not found for key: {}",
-                            k
-                        )));
+                    std::cmp::Ordering::Equal => {
+                        if val
+                            .to_string()
+                            .contains("___________TOMBSTONE________________")
+                        {
+                            return Err(DbError::KeyNotFound(format!(
+                                "Key not found for key: {}",
+                                k
+                            )));
+                        }
+                        return Ok(val.to_string());
                     }
+                    std::cmp::Ordering::Greater => break,
                 };
             }
         }

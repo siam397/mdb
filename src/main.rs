@@ -22,7 +22,7 @@ async fn main() {
         SSTableEngine::new(String::from("data")),
     );
 
-    let flusher = Flusher::new(90, Arc::new(flusher_wal));
+    let flusher = Flusher::new(40, Arc::new(flusher_wal));
     flusher.start();
 
     let sstable_engine = SSTableEngine::new(String::from("data"));

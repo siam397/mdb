@@ -1,11 +1,12 @@
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     time::{Duration, SystemTime},
 };
 
-use chrono::{Local, Utc};
+use chrono::Utc;
 
 use crate::{
     common::{command_type::CommandType, db_errors::DbError},
@@ -57,19 +58,14 @@ impl<E: Engine> Wal<E> {
         Ok(())
     }
 
-    pub fn wal_to_store(&self) -> Result<(), DbError> {
-        let _file = OpenOptions::new()
-            .read(true)
-            .open(&self.file_dir)
-            .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
-
-        Ok(())
-    }
-
     pub fn play_wal_to_store(&self) -> Result<(), DbError> {
         let mut map: BTreeMap<String, String> = BTreeMap::new();
 
         let files = self.get_wal_files_available_for_snapshot()?;
+
+        if files.len() == 0 {
+            return Ok(());
+        }
 
         for file in files {
             let file = File::open(&file).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
@@ -90,12 +86,12 @@ impl<E: Engine> Wal<E> {
     }
 
     pub fn get_wal_files_available_for_snapshot(&self) -> Result<Vec<String>, DbError> {
-        let cutoff = SystemTime::now() - Duration::from_secs(60);
+        let cutoff = SystemTime::now() - Duration::from_secs(5);
         let entries =
             fs::read_dir(&self.file_dir).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
-        println!("{:?}", entries);
 
-        let mut files: Vec<String> = vec![];
+        // Collect (filename, modified_time)
+        let mut files_with_time: Vec<(String, SystemTime)> = vec![];
 
         for potential_entry in entries {
             let entry = potential_entry.map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
@@ -103,8 +99,9 @@ impl<E: Engine> Wal<E> {
             let path = entry.path();
 
             if path.is_file() {
-                let metadata =
-                    fs::metadata(&path).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
+                let metadata = entry
+                    .metadata()
+                    .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
                 let filename = path
                     .file_name()
@@ -112,16 +109,23 @@ impl<E: Engine> Wal<E> {
                     .unwrap_or("no_file")
                     .to_string();
 
-                let file_created_at = metadata
+                let file_modified_at = metadata
                     .modified()
                     .map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
 
-                if file_created_at < cutoff {
-                    files.push(format!("wal/{}", filename));
-                    // let split_inst:Vec<&str> = instruction.trim().split(" ").collect();
+                // Only include files older than cutoff
+                if file_modified_at < cutoff {
+                    files_with_time.push((format!("wal/{}", filename), file_modified_at));
                 }
             }
         }
+
+        // ✅ Sort by modified time — oldest first
+        files_with_time.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+
+        // Extract filenames only
+        let files: Vec<String> = files_with_time.into_iter().map(|(f, _)| f).collect();
+
         Ok(files)
     }
 
@@ -141,7 +145,10 @@ impl<E: Engine> Wal<E> {
 
         match instruction_type {
             CommandType::Set => map.insert(key.to_string(), val),
-            CommandType::Delete => map.remove(key),
+            CommandType::Delete => map.insert(
+                key.to_string(),
+                format!("{}___________TOMBSTONE________________", val),
+            ),
             _ => {
                 todo!()
             }

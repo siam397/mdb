@@ -32,8 +32,6 @@ impl<E: Engine> Db<E> {
 
         self.data.insert(k, v);
 
-        self.engine.save_all(&self.data)?;
-
         Ok(())
     }
 
@@ -65,6 +63,11 @@ impl<E: Engine> Db<E> {
         }
 
         let key = splitted_instruction[1];
+        self.wal.store_wal(
+            CommandType::Delete.as_str(),
+            &key.to_string(),
+            &String::new(),
+        )?;
 
         self.data.remove(key);
 
