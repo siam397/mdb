@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use chrono::Local;
+use chrono::{Local, Utc};
 
 use crate::{
     common::{command_type::CommandType, db_errors::DbError},
@@ -31,8 +31,8 @@ impl<E: Engine> Wal<E> {
         key: &String,
         value: &String,
     ) -> Result<(), DbError> {
-        let now = Local::now();
-        let timestamp = now.format("%Y-%m-%d %H:%M:00").to_string();
+        let now = Utc::now();
+        let timestamp = now.timestamp();
 
         let filename = format!("wal_{}.log", timestamp);
         let full_file_path = format!("{}/{}", self.file_dir, filename);
@@ -93,7 +93,7 @@ impl<E: Engine> Wal<E> {
         let cutoff = SystemTime::now() - Duration::from_secs(60);
         let entries =
             fs::read_dir(&self.file_dir).map_err(|e| DbError::WalStoreFailed(e.to_string()))?;
-        println!("{:?}",entries);
+        println!("{:?}", entries);
 
         let mut files: Vec<String> = vec![];
 

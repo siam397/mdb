@@ -6,7 +6,7 @@ use crate::{
     wal::Wal,
 };
 
-pub struct Db<E: Engine  > {
+pub struct Db<E: Engine> {
     pub data: BTreeMap<String, String>,
     pub engine: E,
     pub wal: Wal<E>,
@@ -49,14 +49,12 @@ impl<E: Engine> Db<E> {
         let potential_res = self.data.get(key);
 
         match potential_res {
-            Some(x) => return Ok(x.to_string()),
-            None => {
-                return match self.engine.get_value(key.to_string()) {
-                    Ok(val) => Ok(val),
-                    Err(e) => Err(e),
-                };
+            Some(x) => Ok(x.to_string()),
+            None => match self.engine.get_value(key.to_string()) {
+                Ok(val) => Ok(val),
+                Err(e) => Err(e),
             },
-        }            
+        }
     }
 
     pub fn handle_delete(&mut self, splitted_instruction: &[&str]) -> Result<(), DbError> {

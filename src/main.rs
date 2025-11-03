@@ -6,7 +6,11 @@ pub mod wal;
 use std::{io, sync::Arc};
 
 use crate::{
-    common::command_type::CommandType, db::Db, flusher::Flusher, storage_engine::{engine::Engine, sstable_engine::SSTableEngine}, wal::Wal
+    common::command_type::CommandType,
+    db::Db,
+    flusher::Flusher,
+    storage_engine::{engine::Engine, sstable_engine::SSTableEngine},
+    wal::Wal,
 };
 
 #[tokio::main]
