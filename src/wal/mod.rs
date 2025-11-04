@@ -120,10 +120,8 @@ impl<E: Engine> Wal<E> {
             }
         }
 
-        // ✅ Sort by modified time — oldest first
         files_with_time.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
 
-        // Extract filenames only
         let files: Vec<String> = files_with_time.into_iter().map(|(f, _)| f).collect();
 
         Ok(files)
