@@ -63,7 +63,7 @@ impl<E: Engine> Wal<E> {
 
         let files = self.get_wal_files_available_for_snapshot()?;
 
-        if files.len() == 0 {
+        if files.is_empty() {
             return Ok(());
         }
 

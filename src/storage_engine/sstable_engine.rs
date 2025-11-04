@@ -20,7 +20,6 @@ impl Engine for SSTableEngine {
     }
 
     fn compact_sstables(&self) -> Result<(), DbError> {
-        let cutoff = SystemTime::now() - std::time::Duration::from_secs(5);
         let files_to_compact = get_sstable_files(&self.file_path)?;
         let mut merged_data: BTreeMap<String, String> = BTreeMap::new();
         // Read and merge data from all files
