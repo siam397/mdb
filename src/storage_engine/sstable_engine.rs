@@ -21,41 +21,19 @@ impl Engine for SSTableEngine {
 
     fn compact_sstables(&self) -> Result<(), DbError> {
         let cutoff = SystemTime::now() - std::time::Duration::from_secs(5);
-        let entries = fs::read_dir(&self.file_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-        
-        let mut files_to_compact: Vec<(String, SystemTime)> = vec![];
+        let files_to_compact = get_sstable_files(&self.file_path)?;
         let mut merged_data: BTreeMap<String, String> = BTreeMap::new();
-
-        // Collect files older than 5 seconds
-        for entry_result in entries {
-            let entry = entry_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-            let path = entry.path();
-
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("db") {
-                let metadata = entry.metadata().map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-                let modified = metadata.modified().map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-
-                if modified <= cutoff {
-                    if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                        files_to_compact.push((filename.to_string(), modified));
-                    }
-                }
-            }
-        }
-
-        // Sort files by modification time (newest first) to ensure we get the latest values
-        files_to_compact.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-
         // Read and merge data from all files
-        for (filename, _) in files_to_compact.iter() {
+        for filename in files_to_compact.iter() {
             let full_path = format!("{}/{}", self.file_path, filename);
-            let file = File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let file =
+                File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
             let reader = BufReader::new(file);
 
             for line_result in reader.lines() {
                 let line = line_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
                 let parts: Vec<&str> = line.splitn(2, " ").collect();
-                
+
                 if parts.len() == 2 {
                     let key = parts[0].to_string();
                     let value = parts[1].to_string();
@@ -63,7 +41,9 @@ impl Engine for SSTableEngine {
                     // Only add/update if:
                     // 1. Key doesn't exist in merged data yet (newer value already processed)
                     // 2. Value is not a tombstone
-                    if !merged_data.contains_key(&key) && !value.contains("___________TOMBSTONE________________") {
+                    if !merged_data.contains_key(&key)
+                        && !value.contains("___________TOMBSTONE________________")
+                    {
                         merged_data.insert(key, value);
                     }
                 }
@@ -75,20 +55,26 @@ impl Engine for SSTableEngine {
             let now = Utc::now();
             let timestamp = now.timestamp();
             let new_file_path = format!("{}/compacted_{}.db", self.file_path, timestamp);
-            
-            let file = File::create(&new_file_path).map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+
+            let file = File::create(&new_file_path)
+                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
             let mut writer = BufWriter::new(file);
 
             for (key, value) in merged_data {
                 let line = format!("{} {}\n", key, value);
-                writer.write_all(line.as_bytes()).map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-                writer.flush().map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+                writer
+                    .write_all(line.as_bytes())
+                    .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+                writer
+                    .flush()
+                    .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
             }
 
             // Delete old files after successful compaction
-            for (filename, _) in files_to_compact {
+            for filename in files_to_compact {
                 let file_path = format!("{}/{}", self.file_path, filename);
-                fs::remove_file(file_path).map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
+                fs::remove_file(file_path)
+                    .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
             }
         }
 
