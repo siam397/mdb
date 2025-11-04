@@ -17,12 +17,13 @@ use crate::{
 async fn main() {
     println!("Welcome to minidb");
 
+    let storage_engine = Arc::new(SSTableEngine::new(String::from("data")));
     let flusher_wal = Wal::new(
         String::from("wal"),
         SSTableEngine::new(String::from("data")),
     );
 
-    let flusher = Flusher::new(40, Arc::new(flusher_wal));
+    let flusher = Flusher::new(40, Arc::new(flusher_wal), storage_engine.clone());
     flusher.start();
 
     let sstable_engine = SSTableEngine::new(String::from("data"));
