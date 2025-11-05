@@ -3,12 +3,118 @@ use std::time::SystemTime;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{BufRead, BufReader, BufWriter, Write, Seek},
 };
 
 use chrono::Utc;
 
 use crate::{common::db_errors::DbError, storage_engine::engine::Engine};
+
+const MAGIC_HEADER: &[u8; 8] = b"MINIDBSS";
+const MAGIC_FOOTER: &[u8; 8] = b"MINIDIDX";
+const VERSION: u8 = 1;
+
+// Write a u32 in big-endian format
+fn write_u32_be(writer: &mut impl Write, value: u32) -> std::io::Result<()> {
+    writer.write_all(&value.to_be_bytes())
+}
+
+// Write a u64 in big-endian format
+fn write_u64_be(writer: &mut impl Write, value: u64) -> std::io::Result<()> {
+    writer.write_all(&value.to_be_bytes())
+}
+
+/// Write a BTreeMap to a binary SSTable file
+/// File format:
+/// - Header (16 bytes):
+///   - Magic (8 bytes): "MINIDBSS"
+///   - Version (1 byte)
+///   - Reserved (7 bytes)
+/// - Data section:
+///   For each record:
+///   - key_len (u32 BE)
+///   - key (bytes)
+///   - tombstone (u8): 0=present, 1=deleted
+///   - value_len (u32 BE) - only if not tombstone
+///   - value (bytes) - only if not tombstone
+/// - Index section:
+///   For each key:
+///   - key_len (u32 BE)
+///   - key (bytes)
+///   - offset (u64 BE)
+/// - Footer:
+///   - index_offset (u64 BE)
+///   - Magic (8 bytes): "MINIDIDX"
+pub fn write_btree_to_binary_file(map: &BTreeMap<String, String>, file_path: &str) -> Result<(), DbError> {
+    let mut index_entries: Vec<(String, u64)> = Vec::new();
+    
+    // Open file with BufWriter for efficient writing
+    let file = File::create(file_path)
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to create file: {}", e)))?;
+    let mut writer = BufWriter::new(file);
+    
+    // Write header
+    writer.write_all(MAGIC_HEADER)
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write header magic: {}", e)))?;
+    writer.write_all(&[VERSION])
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write version: {}", e)))?;
+    writer.write_all(&[0; 7]) // Reserved bytes
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write reserved bytes: {}", e)))?;
+
+    // Write data section and collect index entries
+    for (key, value) in map {
+        // Record the offset for this key
+        let record_offset = writer.stream_position()
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to get position: {}", e)))?;
+        index_entries.push((key.clone(), record_offset));
+
+        // Write key length and key
+        write_u32_be(&mut writer, key.len() as u32)
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write key length: {}", e)))?;
+        writer.write_all(key.as_bytes())
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write key: {}", e)))?;
+
+        // Check if value is a tombstone
+        let is_tombstone = value.contains("___________TOMBSTONE________________");
+        if is_tombstone {
+            writer.write_all(&[1]) // Tombstone flag
+                .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write tombstone flag: {}", e)))?;
+        } else {
+            writer.write_all(&[0]) // Not tombstone
+                .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write tombstone flag: {}", e)))?;
+            write_u32_be(&mut writer, value.len() as u32)
+                .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write value length: {}", e)))?;
+            writer.write_all(value.as_bytes())
+                .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write value: {}", e)))?;
+        }
+    }
+
+    // Write index section
+    let index_offset = writer.stream_position()
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to get index position: {}", e)))?;
+    
+    // Write each index entry
+    for (key, offset) in index_entries {
+        write_u32_be(&mut writer, key.len() as u32)
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write index key length: {}", e)))?;
+        writer.write_all(key.as_bytes())
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write index key: {}", e)))?;
+        write_u64_be(&mut writer, offset)
+            .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write index offset: {}", e)))?;
+    }
+
+    // Write footer
+    write_u64_be(&mut writer, index_offset)
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write index offset: {}", e)))?;
+    writer.write_all(MAGIC_FOOTER)
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to write footer magic: {}", e)))?;
+
+    // Ensure all data is written to disk
+    writer.flush()
+        .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to flush writer: {}", e)))?;
+
+    Ok(())
+}
 
 pub struct SSTableEngine {
     pub file_path: String,
