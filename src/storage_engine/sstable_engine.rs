@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write, Seek},
+    io::{BufRead, BufReader, BufWriter, Write, Seek, Read, SeekFrom},
 };
 
 use chrono::Utc;
@@ -114,6 +114,103 @@ pub fn write_btree_to_binary_file(map: &BTreeMap<String, String>, file_path: &st
         .map_err(|e| DbError::SSTableWriteFailed(format!("Failed to flush writer: {}", e)))?;
 
     Ok(())
+}
+
+/// Read a single key from a binary SSTable file and return its value as a UTF-8 string.
+/// If the key is marked as tombstone or not found, returns `DbError::KeyNotFound`.
+pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<String, DbError> {
+    let mut file = File::open(file_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+    let metadata = file
+        .metadata()
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+    let file_len = metadata.len();
+
+    // Footer is 8 (u64 index_offset) + 8 (magic)
+    if file_len < 16 {
+        return Err(DbError::SSTableReadFailed("sstable file too small".to_string()));
+    }
+
+    // Seek to footer
+    file.seek(SeekFrom::Start(file_len - 16))
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+    let mut buf8 = [0u8; 8];
+    file.read_exact(&mut buf8)
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+    let index_offset = u64::from_be_bytes(buf8);
+
+    let mut magic = [0u8; 8];
+    file.read_exact(&mut magic)
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+    if &magic != MAGIC_FOOTER {
+        return Err(DbError::SSTableReadFailed("invalid sstable footer magic".to_string()));
+    }
+
+    // Seek to index and scan entries to find the key
+    file.seek(SeekFrom::Start(index_offset))
+        .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+    // The index runs until footer (file_len - 16)
+    let index_end = file_len - 16;
+
+    while file.stream_position().map_err(|e| DbError::SSTableReadFailed(e.to_string()))? < index_end {
+        // read key_len
+        let mut key_len_buf = [0u8; 4];
+        file.read_exact(&mut key_len_buf)
+            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let key_len = u32::from_be_bytes(key_len_buf) as usize;
+
+        let mut key_buf = vec![0u8; key_len];
+        file.read_exact(&mut key_buf)
+            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let key_str = String::from_utf8(key_buf.clone())
+            .map_err(|e| DbError::SSTableReadFailed(format!("invalid utf8 in index key: {}", e)))?;
+
+        // read offset
+        let mut off_buf = [0u8; 8];
+        file.read_exact(&mut off_buf)
+            .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+        let record_offset = u64::from_be_bytes(off_buf);
+
+        if key_str == search_key {
+            // Found index entry. Seek to record and read it.
+            file.seek(SeekFrom::Start(record_offset))
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+            // read record key_len and key (we can skip validating but do it to advance cursor)
+            let mut rec_key_len_buf = [0u8; 4];
+            file.read_exact(&mut rec_key_len_buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let rec_key_len = u32::from_be_bytes(rec_key_len_buf) as usize;
+            let mut rec_key_buf = vec![0u8; rec_key_len];
+            file.read_exact(&mut rec_key_buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+            // tombstone flag
+            let mut tomb_buf = [0u8; 1];
+            file.read_exact(&mut tomb_buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            if tomb_buf[0] == 1 {
+                return Err(DbError::KeyNotFound(format!("Key not found for key: {}", search_key)));
+            }
+
+            // read value length and value
+            let mut val_len_buf = [0u8; 4];
+            file.read_exact(&mut val_len_buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let val_len = u32::from_be_bytes(val_len_buf) as usize;
+            let mut val_buf = vec![0u8; val_len];
+            file.read_exact(&mut val_buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+            let value = String::from_utf8(val_buf)
+                .map_err(|e| DbError::SSTableReadFailed(format!("invalid utf8 in value: {}", e)))?;
+            return Ok(value);
+        }
+    }
+
+    Err(DbError::KeyNotFound(format!("Key not found for key: {}", search_key)))
 }
 
 pub struct SSTableEngine {
