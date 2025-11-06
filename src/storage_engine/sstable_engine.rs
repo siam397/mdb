@@ -15,12 +15,12 @@ const MAGIC_FOOTER: &[u8; 8] = b"MINIDIDX";
 const VERSION: u8 = 1;
 
 // Write a u32 in big-endian format
-fn write_u32_be(writer: &mut impl Write, value: u32) -> std::io::Result<()> {
+pub fn write_u32_be(writer: &mut impl Write, value: u32) -> std::io::Result<()> {
     writer.write_all(&value.to_be_bytes())
 }
 
 // Write a u64 in big-endian format
-fn write_u64_be(writer: &mut impl Write, value: u64) -> std::io::Result<()> {
+pub fn write_u64_be(writer: &mut impl Write, value: u64) -> std::io::Result<()> {
     writer.write_all(&value.to_be_bytes())
 }
 
@@ -192,22 +192,7 @@ impl Engine for SSTableEngine {
 
         let full_path = format!("{}/{}.db", self.file_path, timestamp);
 
-        let file =
-            File::create(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-
-        let mut writer = BufWriter::new(file);
-
-        for (key, val) in map {
-            let line = format!("{} {}\n", key, val);
-            writer
-                .write_all(line.as_bytes())
-                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-            writer
-                .flush()
-                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-        }
-
-        Ok(())
+        write_btree_to_binary_file(map, &full_path)
     }
 
     fn save(&self, _k: String, _v: String) -> Result<(), DbError> {
