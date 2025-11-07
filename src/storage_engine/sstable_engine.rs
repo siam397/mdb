@@ -120,12 +120,13 @@ pub fn write_btree_to_binary_file(map: &BTreeMap<String, String>, file_path: &st
 /// If the key is marked as tombstone or not found, returns `DbError::KeyNotFound`.
 pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<String, DbError> {
     let mut file = File::open(file_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-
+    println!("{:?}", file);
     let metadata = file
         .metadata()
         .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
     let file_len = metadata.len();
 
+    println!("{}", file_len);
     // Footer is 8 (u64 index_offset) + 8 (magic)
     if file_len < 16 {
         return Err(DbError::SSTableReadFailed("sstable file too small".to_string()));
@@ -146,6 +147,7 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
     if &magic != MAGIC_FOOTER {
         return Err(DbError::SSTableReadFailed("invalid sstable footer magic".to_string()));
     }
+
 
     // Seek to index and scan entries to find the key
     file.seek(SeekFrom::Start(index_offset))
@@ -173,7 +175,9 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
             .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
         let record_offset = u64::from_be_bytes(off_buf);
 
-        if key_str == search_key {
+        println!("{}", key_str);
+
+        if key_str.contains(search_key){
             // Found index entry. Seek to record and read it.
             file.seek(SeekFrom::Start(record_offset))
                 .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
@@ -306,12 +310,15 @@ impl Engine for SSTableEngine {
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
             println!("{}",file);
-
+            
             match read_key_from_binary_file(&full_path, &k) {
                 Ok(val) => {
                     return Ok(val)
                 },
-                Err(_) => continue,
+                Err(e) => {
+                    println!("{:?}", e);
+                    continue;
+                },
             };
 
         }
