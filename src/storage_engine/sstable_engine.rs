@@ -305,37 +305,15 @@ impl Engine for SSTableEngine {
         let files = get_sstable_files(&self.file_path)?;
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
+            println!("{}",file);
 
-            let file =
-                File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            match read_key_from_binary_file(&full_path, &k) {
+                Ok(val) => {
+                    return Ok(val)
+                },
+                Err(_) => continue,
+            };
 
-            let reader = BufReader::new(&file);
-
-            for line_result in reader.lines() {
-                let line = line_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-
-                let parts: Vec<&str> = line.splitn(2, " ").collect();
-
-                let key = parts[0];
-                let val = parts[1];
-
-                match key.cmp(k.as_str()) {
-                    std::cmp::Ordering::Less => continue,
-                    std::cmp::Ordering::Equal => {
-                        if val
-                            .to_string()
-                            .contains("___________TOMBSTONE________________")
-                        {
-                            return Err(DbError::KeyNotFound(format!(
-                                "Key not found for key: {}",
-                                k
-                            )));
-                        }
-                        return Ok(val.to_string());
-                    }
-                    std::cmp::Ordering::Greater => break,
-                };
-            }
         }
 
         Err(DbError::KeyNotFound(format!(
