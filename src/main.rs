@@ -1,5 +1,6 @@
 pub mod common;
 pub mod db;
+pub mod ende;
 pub mod flusher;
 pub mod storage_engine;
 pub mod wal;

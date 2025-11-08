@@ -8,5 +8,5 @@ pub enum DbError {
     SSTableReadFailed(String),
     SSTableWriteFailed(String),
     TombStoneFound,
-    KeyNotInFile
+    KeyNotInFile,
 }
