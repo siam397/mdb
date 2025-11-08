@@ -120,13 +120,11 @@ pub fn write_btree_to_binary_file(map: &BTreeMap<String, String>, file_path: &st
 /// If the key is marked as tombstone or not found, returns `DbError::KeyNotFound`.
 pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<String, DbError> {
     let mut file = File::open(file_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-    println!("{:?}", file);
     let metadata = file
         .metadata()
         .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
     let file_len = metadata.len();
 
-    println!("{}", file_len);
     // Footer is 8 (u64 index_offset) + 8 (magic)
     if file_len < 16 {
         return Err(DbError::SSTableReadFailed("sstable file too small".to_string()));
@@ -163,6 +161,7 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
             .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
         let key_len = u32::from_be_bytes(key_len_buf) as usize;
 
+
         let mut key_buf = vec![0u8; key_len];
         file.read_exact(&mut key_buf)
             .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
@@ -175,9 +174,7 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
             .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
         let record_offset = u64::from_be_bytes(off_buf);
 
-        println!("{}", key_str);
-
-        if key_str.contains(search_key){
+        if key_str == search_key {
             // Found index entry. Seek to record and read it.
             file.seek(SeekFrom::Start(record_offset))
                 .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
@@ -196,7 +193,7 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
             file.read_exact(&mut tomb_buf)
                 .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
             if tomb_buf[0] == 1 {
-                return Err(DbError::KeyNotFound(format!("Key not found for key: {}", search_key)));
+                return Err(DbError::TombStoneFound);
             }
 
             // read value length and value
@@ -214,7 +211,7 @@ pub fn read_key_from_binary_file(file_path: &str, search_key: &str) -> Result<St
         }
     }
 
-    Err(DbError::KeyNotFound(format!("Key not found for key: {}", search_key)))
+    Err(DbError::KeyNotInFile)
 }
 
 pub struct SSTableEngine {
@@ -309,13 +306,18 @@ impl Engine for SSTableEngine {
         let files = get_sstable_files(&self.file_path)?;
         for file in files {
             let full_path = format!("{}/{}", self.file_path, file);
-            println!("{}",file);
             
             match read_key_from_binary_file(&full_path, &k) {
                 Ok(val) => {
                     return Ok(val)
                 },
                 Err(e) => {
+                    if matches!(e, DbError::TombStoneFound){
+                        break
+                    }
+                    if matches!(e, DbError::KeyNotInFile){
+                        continue
+                    }
                     println!("{:?}", e);
                     continue;
                 },

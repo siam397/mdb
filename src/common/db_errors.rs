@@ -7,4 +7,6 @@ pub enum DbError {
     WalStoreFailed(String),
     SSTableReadFailed(String),
     SSTableWriteFailed(String),
+    TombStoneFound,
+    KeyNotInFile
 }
