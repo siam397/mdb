@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{Read, Seek, SeekFrom},
 };
 
 use chrono::Utc;
@@ -23,54 +23,80 @@ impl Engine for SSTableEngine {
     fn compact_sstables(&self) -> Result<(), DbError> {
         let files_to_compact = get_sstable_files(&self.file_path)?;
         let mut merged_data: BTreeMap<String, String> = BTreeMap::new();
-        // Read and merge data from all files
-        for filename in files_to_compact.iter() {
+
+        for filename in &files_to_compact {
             let full_path = format!("{}/{}", self.file_path, filename);
-            let file =
-                File::open(&full_path).map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-            let reader = BufReader::new(file);
+            let file = File::open(&full_path)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let metadata = file
+                .metadata()
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let file_len = metadata.len();
 
-            for line_result in reader.lines() {
-                let line = line_result.map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
-                let parts: Vec<&str> = line.splitn(2, " ").collect();
+            // read footer (to get index offset)
+            let mut f = file;
+            f.seek(SeekFrom::Start(file_len - 16))
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let mut buf = [0u8; 8];
+            f.read_exact(&mut buf)
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+            let index_offset = u64::from_be_bytes(buf);
 
-                if parts.len() == 2 {
-                    let key = parts[0].to_string();
-                    let value = parts[1].to_string();
+            // jump to index section
+            f.seek(SeekFrom::Start(index_offset))
+                .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
 
-                    // Only add/update if:
-                    // 1. Key doesn't exist in merged data yet (newer value already processed)
-                    // 2. Value is not a tombstone
-                    if !merged_data.contains_key(&key)
-                        && !value.contains("___________TOMBSTONE________________")
-                    {
-                        merged_data.insert(key, value);
+            let index_end = file_len - 16;
+            while f.stream_position().unwrap() < index_end {
+                // read key_len
+                let mut key_len_buf = [0u8; 4];
+                f.read_exact(&mut key_len_buf)
+                    .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+                let key_len = u32::from_be_bytes(key_len_buf) as usize;
+
+                // read key
+                let mut key_buf = vec![0u8; key_len];
+                f.read_exact(&mut key_buf)
+                    .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+                let key = String::from_utf8(key_buf)
+                    .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+
+                // read offset
+                let mut off_buf = [0u8; 8];
+                f.read_exact(&mut off_buf)
+                    .map_err(|e| DbError::SSTableReadFailed(e.to_string()))?;
+                let _offset = u64::from_be_bytes(off_buf);
+
+                // get value from this SSTable
+                match read_key_from_binary_file(&full_path, &key) {
+                    Ok(value) => {
+                        if !value.contains("___________TOMBSTONE________________") {
+                            // only keep if key is not yet merged (newer SSTables come first)
+                            if !merged_data.contains_key(&key) {
+                                merged_data.insert(key, value);
+                            }
+                        }
+                    }
+                    Err(DbError::TombStoneFound) => {
+                        // skip tombstones
+                    }
+                    Err(_) => {
+                        // ignore corrupted key/value gracefully
+                        continue;
                     }
                 }
             }
         }
 
-        // Write merged data to new SSTable file
+        // Write merged data if any
         if !merged_data.is_empty() {
             let now = Utc::now();
             let timestamp = now.timestamp();
             let new_file_path = format!("{}/compacted_{}.db", self.file_path, timestamp);
 
-            let file = File::create(&new_file_path)
-                .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-            let mut writer = BufWriter::new(file);
+            write_btree_to_binary_file(&merged_data, &new_file_path)?;
 
-            for (key, value) in merged_data {
-                let line = format!("{} {}\n", key, value);
-                writer
-                    .write_all(line.as_bytes())
-                    .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-                writer
-                    .flush()
-                    .map_err(|e| DbError::SSTableWriteFailed(e.to_string()))?;
-            }
-
-            // Delete old files after successful compaction
+            // Remove old SSTables
             for filename in files_to_compact {
                 let file_path = format!("{}/{}", self.file_path, filename);
                 fs::remove_file(file_path)
@@ -80,6 +106,7 @@ impl Engine for SSTableEngine {
 
         Ok(())
     }
+    
 
     fn save_all(&self, map: &std::collections::BTreeMap<String, String>) -> Result<(), DbError> {
         let now = Utc::now();
