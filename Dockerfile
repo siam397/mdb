@@ -17,7 +17,7 @@ COPY src ./src
 RUN cargo build --release --quiet
 
 # Stage 2: Create the final, smaller image
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 WORKDIR /usr/local/bin
 
 # Copy the binary from the builder stage
