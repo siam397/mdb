@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM rust:1.76-slim-bullseye AS builder
+FROM rust:latest AS builder
 WORKDIR /usr/src/mdb
 
 # Copy the Cargo manifest and lock file
