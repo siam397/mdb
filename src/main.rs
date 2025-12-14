@@ -37,11 +37,11 @@ async fn main() {
     ));
 
     // Listen on port 4000
-    let listener = TcpListener::bind("127.0.0.1:4000")
+    let listener = TcpListener::bind("0.0.0.0:4000")
         .await
         .expect("Failed to bind port 4000");
 
-    println!("Listening on 127.0.0.1:4000 ...");
+    println!("Listening on 0.0.0.0:4000 ...");
 
     loop {
         let (socket, addr) = listener.accept().await.unwrap();

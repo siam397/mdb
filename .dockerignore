@@ -1,5 +1,3 @@
 .git
 .gitignore
 target
-data
-wal

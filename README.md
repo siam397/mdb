@@ -24,6 +24,7 @@ cargo run
 Connect with a TCP client (e.g., netcat):
 ```bash
 nc 127.0.0.1 4000
+
 ```
 
 Issue Commands
